@@ -3,91 +3,149 @@
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
     
-    market_selection <- reactiveVal(NULL)
+    m1_selection <- reactiveVal(NULL)
+    pop1_selection <- reactiveVal(NULL)
+
+    m2_selection <- reactiveVal(NULL)
+    pop2_selection <- reactiveVal(NULL)
     
-    observeEvent(req(input$m_name), {
-        market_selection(input$n_name)
-        market_data()
+    bin_width_selection <- reactiveVal(NULL)
+    
+    genre_pop_selection <- reactiveVal(NULL)
+    
+    observeEvent(req(input$m1_name), {
+        m1_selection(input$m1_name)
+        pop1_selection(input$pop1_slider)
+        m2_selection(input$m2_name)
+        pop2_selection(input$pop2_slider)
+        
+        genre_pop_selection(input$genre_slider)
+        
+        bin_width_selection(input$width_slider)
+        
+        m1_data()
+        m2_data()
     })
         
 
-    
-    market_data <- reactive({
-        print(market_info[market_info$Name== input$m_name, 2])
+#   pull market 1 data from file    
+    m1_data <- reactive({
+#        print(market_info[market_info$Name== input$m1_name, 2])
         
-        temp_path <- file.path("./artist_market_data/", paste(market_info[market_info$Name== input$m_name, 2], ".csv", sep=""))
-        print(temp_path)
-        market_data <- readr::read_csv(temp_path)
+        temp_path <- file.path("./artist_market_data/", paste(market_info[market_info$Name== input$m1_name, 2], ".csv", sep=""))
+  #      print(temp_path)
+        m1_data <- readr::read_csv(temp_path)
         
-        # for (data in list.files(path = './artist_market_data')){
-        #     if(market_info[market_info$Name== input$m_name, 2] == tools::file_path_sans_ext(data)){
-        #         market_data <- readr::read_csv(temp_path)
-        #     }
-        # }
-        print(head(market_data))
-        return(market_data)
+#        print(head(m1_data))
+        return(m1_data)
+    })
+
+#   pull market 2 data from file    
+    m2_data <- reactive({
+ #       print(market_info[market_info$Name== input$m2_name, 2])
+        
+        temp_path <- file.path("./artist_market_data/", paste(market_info[market_info$Name== input$m2_name, 2], ".csv", sep=""))
+ #       print(temp_path)
+        m2_data <- readr::read_csv(temp_path)
+        
+ #       print(head(m2_data))
+        return(m2_data)
     })
     
 #    function to show box plot
     output$pop_plot <- renderPlot({
-        market_data() %>% mutate( bin=cut_width(popularity, width=10, boundary=0)) %>%
-            ggplot( aes(x=bin, y=followers) ) +
-            geom_boxplot(color = "black", fill="#1DB954") +
-            theme(panel.grid.minor = element_line(colour="white", size=0.5)) +
-            theme(panel.grid.major = element_line(colour="#191414", size=0.5)) +
-            #  theme(panel.background = element_rect(fill = "#191414"))
+#        print(input$width_slider)
+
+        # prepare the data for plotting
+        m1_df <- m1_data() %>% 
+            filter(between(popularity, input$pop1_slider[1], input$pop1_slider[2])) # %>%
+#            mutate( bin=cut_width(popularity, width=10, boundary=0))
+        m2_df <- m2_data() %>% 
+            filter(between(popularity, input$pop2_slider[1], input$pop2_slider[2])) # %>%
+#            mutate( bin=cut_width(popularity, width=10, boundary=0))
+        
+        m1_df$Group <- input$m1_name
+        m2_df$Group <- input$m2_name
+        
+        big_df <- rbind(m1_df, m2_df)
+
+        combo_df <- data.frame(big_df$popularity, big_df$Group, big_df$followers)
+        
+
+        combo_df %>% 
+            mutate(bin=cut_width(big_df.popularity, width=input$width_slider, boundary=0)) %>%
+            ggplot(aes(x=bin, y=big_df.followers, fill=big_df.Group) ) +
+            geom_boxplot(color = "black") +
+            # stat_summary()
+            theme(panel.grid.major = element_line(color="#191414", size=0.5),
+                  panel.grid.minor = element_line(color="#191414", size=0.5),
+                  plot.title = element_text(color = "black", size = 30),
+                  axis.text.x = element_text(color = "black", size = 15),
+                  axis.text.y = element_text(color = "black", size = 15),
+                  axis.title.x = element_text(color = "black", size = 20),
+                  axis.title.y = element_text(color = "black", size = 20),
+                  legend.title = element_text(color = "black", size = 20),
+                  legend.text = element_text(color = "black", size = 20),
+                  legend.justification = c(1,0),
+                  legend.position = c(1,0)
+            ) +
+            #  theme(panel.background = element_rect(fill = "#191414")) +
             scale_y_continuous(trans="log10") +
-            xlab("Popularity") + 
-            ylab("Followers")
+            labs(title = "Artist Followers vs Popularity", 
+                 x= "Popularity Intervals",
+                 y = "Followers (log10 scale)",
+                 fill = "Markets")
+            # xlab("Popularity") + 
+            # ylab("Followers (log10 scale)")
+    #        scale_y_continuous(labels = comma)
     })
     
     # display the market table
-    output$table <- renderDataTable({
-        market_data()
+    output$table1 <- renderDataTable({
+        m1_data()
+    })
+    output$table2 <- renderDataTable({
+        m2_data()
     })
     
+    
+    # display the genre boxplot
+    output$genre_plot <- renderPlot({
+#        print(input$genre_slider)
+        genre_info %>% 
+            filter(between(popularity, input$genre_slider[1], input$genre_slider[2])) %>%
+            ggplot(aes(x=popularity)) +
+            geom_histogram(binwidth=1, fill="#1DB954",  color = "black") +
+            # stat_summary() 
+            theme(panel.grid.major = element_line(color="#191414", size=0.5),
+                  panel.grid.minor = element_line(color="#191414", size=0.5),
+                  plot.title = element_text(color = "black", size = 30),
+                  axis.text.x = element_text(color = "black", size = 15),
+                  axis.text.y = element_text(color = "black", size = 15),
+                  axis.title.x = element_text(color = "black", size = 20),
+                  axis.title.y = element_text(color = "black", size = 20)
+            ) +
+            #  theme(panel.background = element_rect(fill = "#191414")) +
+            labs(title = "Genres Distribution by Popularity", 
+                 x= "Popularity Intervals",
+                 y = "Number of Genres")
+    })
+    
+    
+    
+    
+    # display the genre tables
+    output$mode_1 <- renderDataTable({
+        genre_info %>% filter(mode == 1) %>% arrange(desc(popularity))
+    })
+    output$mode_0 <- renderDataTable({
+        genre_info %>% filter(mode == 0) %>% arrange(desc(popularity))
+    })
+    
+    # display market info (for testing reference)
     output$all_markets <- renderDataTable(
         market_info
     )
-
-#    main <- reactive({})
     
-    
-#     artists_delay <- reactive({
-#         artists %>%
-#             filter(origin == input$origin & foreign == input$foreign) %>%
-#             group_by(popularity) %>%
-#             summarise(n = n(),
-#                       # number of times artist appears in the foreign market
-#                       departure = mean(dep_delay),
-#             )
-#     })
-# 
-# 
-#     output$count <- renderPlot(
-#         artists_delay() %>%
-#             ggplot(aes(x = popularity, y = n)) +
-#             geom_col(fill = "lightblue") +
-#             ggtitle("Number of foreign markets")
-#     )
-# 
-# 
-#     output$delay <- renderPlot(
-# 
-#         artists_delay()  %>% pivot_longer(
-#             arrival:departure,
-#             names_to = "Artist",
-#             values_to = "delay"
-#         ) %>% ggplot() +
-#             geom_col(
-#                 aes(x=carrier, y = delay, fill=type),
-#                 position = "dodge"
-#             )
-#     )
-# 
 
-# 
-# })
-
-    
 })

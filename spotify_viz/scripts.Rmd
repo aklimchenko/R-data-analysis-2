@@ -15,7 +15,7 @@ library(tidyverse)
 library(OneR)
 ```
 
-## Import the foreign market data
+## Import a small subset of the foreign market data to test file creation
 
 ```{r load data}
 BI_raw.df <- readr::read_csv("./BI.csv")
@@ -27,14 +27,16 @@ CH_df = CH_raw.df %>% mutate(market_code = "CH")
 CL_raw.df <- readr::read_csv("./CL.csv")
 CL_df = CL_raw.df %>% mutate(market_code = "CL")
 
-
 ```
+
+## Filter for Boxplot
+
 ```{r}
 BI_df <- filter(BI_df, popularity >=10) %>% arrange(desc(popularity))
 ```
 
 
-## Create Boxplot
+## Create Boxplot of Popularity vs Followers to test visual for the Shiny App
 
 
 ```{r boxplot}
@@ -50,6 +52,7 @@ BI_df %>% mutate( bin=cut_width(popularity, width=10, boundary=0)) %>%
 
 ```
 
+## Testing joins to see how best to create market info for an artist
 
 ```{r}
 tmp_df = left_join(BI_df, select(CA_df, c(id, market_code)),
@@ -57,10 +60,9 @@ tmp_df = left_join(BI_df, select(CA_df, c(id, market_code)),
                    suffix = c("_BI", "_CA"))
 tmp_df
 
-
 ```
 
-This code created the all_markets file by creating and 
+## Attempted to create a 'master' artist file that stores all markets that they're in 
 
 
 ```{r}
@@ -119,7 +121,8 @@ write.csv(all_markets, "./all_markets.csv", row.names= FALSE)
 rm(all_markets)
 ```
 
-This script generated the list of country codes for which we have spotify data
+## Decided instead to create a reference file for all market codes
+### This script generated the list of country codes for which we have spotify data
 
 ```{r}
 Code <- c()
@@ -139,10 +142,46 @@ write.csv(spotify_market_codes, "./spotify_market_codes.csv", row.names= FALSE)
 
 ```
 
+## Filtering and subsetting genre data into a useful size
+
+```{r}
+genre_df_raw<-readr::read_csv("./data_by_genres_o.csv")
+
+genre_mode1_df <- genre_df_raw %>% filter(mode == 1) %>% arrange(desc(popularity)) %>% select(genres, popularity)
+genre_mode0_df <- genre_df_raw %>% filter(mode == 0) %>% arrange(desc(popularity)) %>% select(genres, popularity)
+
+head(genre_mode1_df, 20)
+head(genre_mode0_df, 20)
+
+
+```
+
+## Plotting the most popular genres
 
 ```{r}
 
+head(genre_mode1_df,10) %>%
+  ggplot( aes(x=genres, y=popularity) ) +
+  geom_bar(stat="identity", fill="#1DB954") +
+  theme(panel.grid.minor = element_line(colour="white", size=0.5)) +
+  theme(panel.grid.major = element_line(colour="#191414", size=0.5)) +
+  xlab("Genres") +
+  ylab("Popularity") +
+  coord_flip()
+
+head(genre_mode0_df,10) %>%
+  ggplot( aes(x=genres, y=popularity) ) +
+  geom_bar(stat="identity", fill="#1DB954") +
+  theme(panel.grid.minor = element_line(colour="white", size=0.5)) +
+  theme(panel.grid.major = element_line(colour="#191414", size=0.5)) +
+  xlab("Genres") +
+  ylab("Popularity") +
+  coord_flip()
+
+
 ```
+
+## Turns out above is useless; will plot histogram of genre count by popularity
 
 
 
