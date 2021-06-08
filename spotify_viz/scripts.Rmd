@@ -1,0 +1,157 @@
+---
+title: "spotify_viz_data_processing"
+author: "Aleksey Klimchenko"
+date: "6/6/2021"
+output: html_document
+---
+
+```{r libraries}
+library(shiny)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(DT)
+library(tidyverse)
+library(OneR)
+```
+
+## Import the foreign market data
+
+```{r load data}
+BI_raw.df <- readr::read_csv("./BI.csv")
+BI_df = BI_raw.df %>% mutate(market_code = "BI")
+CA_raw.df <- readr::read_csv("./CA.csv")
+CA_df = CA_raw.df %>% mutate(market_code = "CA")
+CH_raw.df <- readr::read_csv("./CH.csv")
+CH_df = CH_raw.df %>% mutate(market_code = "CH")
+CL_raw.df <- readr::read_csv("./CL.csv")
+CL_df = CL_raw.df %>% mutate(market_code = "CL")
+
+
+```
+```{r}
+BI_df <- filter(BI_df, popularity >=10) %>% arrange(desc(popularity))
+```
+
+
+## Create Boxplot
+
+
+```{r boxplot}
+BI_df %>% mutate( bin=cut_width(popularity, width=10, boundary=0)) %>%
+  ggplot( aes(x=bin, y=followers) ) +
+  geom_boxplot(color = "black", fill="#1DB954") +
+  theme(panel.grid.minor = element_line(colour="white", size=0.5)) +
+  theme(panel.grid.major = element_line(colour="#191414", size=0.5)) +
+#  theme(panel.background = element_rect(fill = "#191414"))
+  scale_y_continuous(trans='log10') +
+  xlab("Popularity") +
+  ylab("Followers")
+
+```
+
+
+```{r}
+tmp_df = left_join(BI_df, select(CA_df, c(id, market_code)),
+                   by = "id",
+                   suffix = c("_BI", "_CA"))
+tmp_df
+
+
+```
+
+This code created the all_markets file by creating and 
+
+
+```{r}
+temp_path <- ".\temp_markets"
+for (data in list.files(path = "./temp_markets")){
+
+  # create first df if no data exists yet
+  # make new column for market codes
+
+  print(data)
+
+  if(!exists("all_markets")){
+    first_code <- tools::file_path_sans_ext(data)     # get market code
+
+    all_markets<-read.csv(data, header=TRUE) %>% 
+      mutate(market_codes = first_code)  # assign first market code
+    rm(first_code)
+  }
+  
+  # if data exists, then add the new market codes
+  else if(exists("all_markets")){
+    temp_code <- tools::file_path_sans_ext(data) # new market code
+
+    new_data <- read.csv(data, header=TRUE) %>% mutate(market_codes = c(""))
+    head(new_data)
+    data_left <- left_join(all_markets, new_data)
+
+    # create vector from old codes, append new codes to each
+    old_codes <- data_left$market_codes
+
+    data_left$market_codes <- replace(data_left$market_codes, 
+                                      1:length(data_left$market_codes), 
+                                      paste(old_codes, temp_code, sep=" "))
+
+
+    # right join and add the new code to the market_codes vector
+    data_right <- right_join(all_markets, new_data)
+    old_codes <- data_right$market_codes
+    data_right$market_codes <- replace(data_right$market_codes, 
+                                      1:length(data_right$market_codes), 
+                                      paste(old_codes, temp_code, sep=" "))
+    
+    # combine into one df    
+    all_markets <- bind_rows(data_left, data_right)
+    head(all_markets)
+    
+    rm(data_left)
+    rm(new_data)
+    rm(data_right)
+    rm(temp_code)
+    rm(old_codes)
+  }
+}
+
+write.csv(all_markets, "./all_markets.csv", row.names= FALSE)
+rm(all_markets)
+```
+
+This script generated the list of country codes for which we have spotify data
+
+```{r}
+Code <- c()
+File <- c()
+for (data in list.files(path = "./artist_market_data")){
+  Code <- append(Codes, tools::file_path_sans_ext(data))
+  File <- append(File, basename(data))
+  
+}
+
+avail_markets <- data.frame(Code, File)
+country_df <- readr::read_csv("./country_codes.csv")
+
+spotify_market_codes <- right_join(country_df, avail_markets, by="Code")
+
+write.csv(spotify_market_codes, "./spotify_market_codes.csv", row.names= FALSE)
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
